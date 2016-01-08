@@ -1,0 +1,3 @@
+Import("environment")
+
+lithium = environment.Program("lithium", ["interpreter.cpp", "numberparse.cpp", "variables.cpp", "context.cpp", "run.cpp"])
