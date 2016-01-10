@@ -22,7 +22,7 @@ namespace Lithium{
     <term>           ::= <factor> [<mulop> <factor>]*
     <factor>         ::= <value> [<bitop> <value>]*
     <value>          ::= <get> | <call> | <literal> | '(' <expression ')'
-    <get>            ::= 'get' <type> <variable> [ '[' <type> <expression> ']' ]
+    <get>            ::= 'get' <variable> [ '[' <type> <expression> ']' ]
     <literal>        ::= <float_literal> | <int_literal> | <bool_literal> | <str_literal> | <arr_literal> | <obj_literal>
 
     <bool_literal>   ::= '`' | '~'

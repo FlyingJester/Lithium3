@@ -45,9 +45,12 @@ struct TypeSpecifier{
 
 class Context;
 bool VerifyPrototypes(Context &ctx, const TypeSpecifier &type);
-struct PrototypeVerifier{
+class PrototypeVerifier{
+    bool op(const TypeSpecifier &type);
+public:
     Context &ctx;
-    bool operator() (const TypeSpecifier &type);
+    bool operator() (const TypeSpecifier &type){ return op(type); }
+    bool operator() (const std::pair<std::string, TypeSpecifier> &type){ return op(type.second); }
 };
 
 // NOTE: Conversions can only be made between Integer and Floating.
@@ -114,7 +117,7 @@ struct bitrotateright{ inline T operator()(T a, T b) const { return a>>b | (a<<(
 
 struct Function{
     std::string::const_iterator start;
-    std::vector<std::pair<std::string, Value::Type> > args;
+    std::vector<std::pair<std::string, TypeSpecifier> > args;
 };
 
 std::string ValueName(Value::Type t);

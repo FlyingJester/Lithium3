@@ -130,15 +130,15 @@ bool InterpretCall(Context &ctx){
 
     std::vector<Value> args; args.reserve(function.value.function->args.size());
 
-    for(const std::pair<std::string, Value::Type> &i : function.value.function->args){
+    for(const std::pair<std::string, TypeSpecifier> &i : function.value.function->args){
         ctx.source().skipWhitespace();
 
         if(!InterpretExpression(ctx))
             return false;
 
-        if(ctx.top().type!=i.second)
+        if(ctx.top().type!=i.second.our_type)
             return ctx.setError(Context::Error::TypeError, 
-                std::string("Argument") + std::to_string(args.size()) + " is a " + ValueName(ctx.top().type) + ", expected " + ValueName(i.second));
+                std::string("Argument") + std::to_string(args.size()) + " is a " + ValueName(ctx.top().type) + ", expected " + ValueName(i.second.our_type));
 
         args.push_back(ctx.pop());
 
@@ -505,7 +505,107 @@ bool InterpretValue(Context &ctx){
 
 }
 
-bool InterpretGet(Context &ctx);
+ // <get>            ::= 'get' <variable> [ '[' <type> <expression> ']' ]
+bool InterpretGet(Context &ctx){
+
+    ctx.source().skipWhitespace();
+    std::string ident;
+    if(!ctx.source().getIdentifier(ident))
+        return ctx.setError( Context::Error::SyntaxError, "Expected identifier after type in get statement" );
+
+    Value val = ctx.findObject(ident);
+    if(val.type==Value::Null)
+        return ctx.setError( Context::Error::ReferenceError, std::string("Reference to undefined variable ") + ident );
+    else if(val.type!=Value::Object && val.type!=Value::Object && val.type!=Value::Object)
+        return ctx.setError( Context::Error::TypeError, std::string("Cannot fetch from a ") + ValueName(val.type) );
+
+    ctx.source().skipWhitespace();
+
+    if(ctx.source().peekc()=='['){
+        ctx.source().getc();
+
+        ctx.source().skipWhitespace();
+        TypeSpecifier type;
+        // TODO: Make typing strict here.
+        if(!InterpretType(ctx, type))
+            return ctx.setError( Context::Error::SyntaxError, "Expected type specifier for get statement" );
+
+        // This check is an extra early out.
+        if(val.type==Value::Array && !val.value.array->empty())
+            if(val.value.array->back().type!=type.our_type)
+                return ctx.setError( Context::Error::TypeError, std::string("Invalid fetch of type ") + ValueName(type.our_type) +
+                " from Array holding type " + ValueName(val.value.array->back().type) );
+
+        ctx.source().skipWhitespace();
+
+        if(!InterpretExpression(ctx))
+            return false;
+
+        Value index = ctx.pop();
+        Value fetch = { Value::Null, {}};
+
+        switch(val.type){
+            case Value::Array:
+                if(index.type!=Value::Integer)
+                    return ctx.setError( Context::Error::TypeError, std::string("Cannot access element of an array from a ") + ValueName(index.type) );
+                if(index.value.integer < 0)
+                    return ctx.setError( Context::Error::ReferenceError, std::to_string(index.value.integer) + " is negative in Array fetch" );
+                if((uint64_t)index.value.integer >= val.value.array->size())
+                    return ctx.setError( Context::Error::ReferenceError, std::to_string(index.value.integer) + 
+                        " is past end of array of size " + std::to_string(val.value.array->size()) );
+
+                fetch = val.value.array->at(index.value.integer);
+                break;
+            case Value::String:
+                if(index.type!=Value::Integer)
+                    return ctx.setError( Context::Error::TypeError, std::string("Cannot access element of a string from a ") + ValueName(index.type) );
+                if(index.value.integer < 0)
+                    return ctx.setError( Context::Error::ReferenceError, std::to_string(index.value.integer) + " is negative in String fetch" );
+                if((uint64_t)index.value.integer >= val.value.string->length())
+                    return ctx.setError( Context::Error::ReferenceError, std::to_string(index.value.integer) + 
+                        " is past end of array of size " + std::to_string(val.value.string->length()) );
+                fetch.type = Value::Integer;
+                fetch.value.integer = val.value.string->at(index.value.integer);
+                break;
+            case Value::Object:
+                if(index.type!=Value::String)
+                    return ctx.setError( Context::Error::TypeError, std::string("Cannot access element of an object from a ") + ValueName(index.type) );
+
+                {
+                    auto x =  val.value.object->find(index.value.string[0]);
+                    if(x == val.value.object->cend())
+                        return ctx.setError( Context::Error::ReferenceError, std::string("No such element '") + index.value.string[0] + '\'' );
+                    else
+                        fetch = x->second;
+                }
+                break;
+            default:
+                assert(false);
+        }
+
+        assert(fetch.type!=Value::Null);
+        if(fetch.type==Value::Null)
+            return ctx.setError( Context::Error::ReferenceError, "(INTERNAL) Fetch failed" );
+
+        // TODO: Make typing strict here.
+        if(fetch.type!=type.our_type)
+            return ctx.setError( Context::Error::TypeError, ident + " is type " + ValueName(val.type) + " but was accessed as type " + ValueName(type.our_type) );
+
+        ctx.push(fetch);
+
+        ctx.source().skipWhitespace();
+
+        if(!ctx.source().match(']'))
+            return ctx.setError( Context::Error::TypeError, "Expected close backet at the end of access" );
+        return true;
+    }
+    else{
+
+        ctx.push(val);
+        return true;
+    }
+
+}
 
 bool InterpretStringLiteral(Context &ctx){
 
@@ -699,7 +799,7 @@ bool InterpretFunctionDeclaration(Context &ctx){
         if(!ctx.source().getIdentifier(name))
             return ctx.setError( Context::Error::SyntaxError, "Expected argument name" );
 
-        func.args.push_back({name, type.our_type});
+        func.args.push_back({name, type});
 
         ctx.source().skipWhitespace();
 

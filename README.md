@@ -1,7 +1,7 @@
 Lithium
 =======
 
-Copyright (c) 2015-2016, Martin McDonough
+Copyright (c) 2015-2016, Martin McDonough, Martin D Ari
 
 This is the third version of the Lithium Interpreter. It implements the LCL scripting language, which is the successor to the ICL language that Lithium used to implement.
 

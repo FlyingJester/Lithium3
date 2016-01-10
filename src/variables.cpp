@@ -1,21 +1,23 @@
 #include "variables.hpp"
 #include "context.hpp"
+#include <algorithm>
 
 namespace Lithium{
 
 bool VerifyPrototypes(Context &ctx, const TypeSpecifier &type){
-
     if(type.our_type==Value::Object){
         Value val = ctx.findObject(type.prototype);
         return val.type==Value::Object;
     }
     else if(type.our_type==Value::Function){
         PrototypeVerifier op = {ctx};
-        return std::all_of(type.args.cbegin(), type.args.cend(), op);
+        return std::all_of(type.arg_types.cbegin(), type.arg_types.cend(), op);
     }
+    else
+        return true;
 }
 
-bool PrototypeVerifier::operator() (const TypeSpecifier &type){
+bool PrototypeVerifier::op(const TypeSpecifier &type){
     return VerifyPrototypes(ctx, type);
 }
 
